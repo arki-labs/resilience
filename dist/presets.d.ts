@@ -1,4 +1,4 @@
-import type { IPolicy } from 'cockatiel';
+import type { Policy } from './policy.js';
 /**
  * Resilience policy tuned for external API calls (geocoding, AI providers, etc.).
  *
@@ -6,7 +6,7 @@ import type { IPolicy } from 'cockatiel';
  * - Circuit breaker: 5 consecutive failures, 30 s half-open
  * - Timeout: 10 s per attempt
  */
-export declare const externalApiPolicy: IPolicy;
+export declare const externalApiPolicy: Policy;
 /**
  * Resilience policy tuned for database operations.
  *
@@ -16,7 +16,7 @@ export declare const externalApiPolicy: IPolicy;
  * - Retry: 2 attempts, 50 ms initial, 1 s max
  * - Timeout: 5 s per attempt
  */
-export declare const databasePolicy: IPolicy;
+export declare const databasePolicy: Policy;
 /**
  * Resilience policy tuned for background job processing where higher latency
  * and more retries are acceptable.
@@ -25,5 +25,5 @@ export declare const databasePolicy: IPolicy;
  * - Circuit breaker: 10 consecutive failures, 60 s half-open
  * - Timeout: 60 s per attempt
  */
-export declare const backgroundJobPolicy: IPolicy;
+export declare const backgroundJobPolicy: Policy;
 //# sourceMappingURL=presets.d.ts.map

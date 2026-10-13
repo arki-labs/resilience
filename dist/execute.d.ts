@@ -1,5 +1,5 @@
-import type { IPolicy } from 'cockatiel';
 import type { CircuitBreakerPolicyOptions, RetryPolicyOptions, TimeoutPolicyOptions } from './policies.js';
+import type { Policy, PolicyCallback } from './policy.js';
 /**
  * Execute a function with an already-constructed resilience policy.
  *
@@ -11,32 +11,22 @@ import type { CircuitBreakerPolicyOptions, RetryPolicyOptions, TimeoutPolicyOpti
  * );
  * ```
  */
-export declare function withResilience<T>(fn: (context: {
-    signal: AbortSignal;
-}) => T | Promise<T>, policy: IPolicy): Promise<T>;
+export declare function withResilience<T>(fn: PolicyCallback<T>, policy: Policy): Promise<T>;
 /**
  * Execute a function with a retry policy (no circuit breaker or timeout).
  *
  * Convenience wrapper that creates an ephemeral retry policy from the provided
  * options and executes immediately.
  */
-export declare function withRetry<T>(fn: (context: {
-    signal: AbortSignal;
-}) => T | Promise<T>, options?: RetryPolicyOptions): Promise<T>;
+export declare function withRetry<T>(fn: PolicyCallback<T>, options?: RetryPolicyOptions): Promise<T>;
 /**
  * Execute a function with a timeout policy.
  */
-export declare function withTimeout<T>(fn: (context: {
-    signal: AbortSignal;
-}) => T | Promise<T>, options?: TimeoutPolicyOptions): Promise<T>;
+export declare function withTimeout<T>(fn: PolicyCallback<T>, options?: TimeoutPolicyOptions): Promise<T>;
 /**
- * Execute a function with a circuit breaker policy.
- *
- * Note: for the circuit breaker to be effective across multiple calls, you
- * should create the policy once and reuse it rather than calling this helper
- * repeatedly (each call creates a fresh breaker with no history).
+ * @deprecated Builds a new circuit breaker on every call, so it never
+ * remembers a failure and never opens. Build one policy with
+ * `createCircuitBreakerPolicy()` and pass it to `withResilience()` on each call.
  */
-export declare function withCircuitBreaker<T>(fn: (context: {
-    signal: AbortSignal;
-}) => T | Promise<T>, options?: CircuitBreakerPolicyOptions): Promise<T>;
+export declare function withCircuitBreaker<T>(fn: PolicyCallback<T>, options?: CircuitBreakerPolicyOptions): Promise<T>;
 //# sourceMappingURL=execute.d.ts.map

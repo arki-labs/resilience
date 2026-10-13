@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// Type guards for cockatiel policy event detection
+// Type guards for policy event detection
 // ---------------------------------------------------------------------------
 function hasRetryEvents(policy) {
     return 'onRetry' in policy;
@@ -9,6 +9,13 @@ function hasCircuitBreakerEvents(policy) {
 }
 function hasTimeoutEvents(policy) {
     return 'onTimeout' in policy;
+}
+/** One line of text for a failure, whatever was thrown. */
+function describe(reason) {
+    if ('error' in reason) {
+        return reason.error instanceof Error ? reason.error.message : String(reason.error);
+    }
+    return String(reason.value);
 }
 // ---------------------------------------------------------------------------
 // Public API
@@ -23,59 +30,45 @@ export function attachPolicyLogger(policy, logger, policyName = 'resilience') {
     const disposables = [];
     // Retry events
     if (hasRetryEvents(policy)) {
-        const retryPolicy = policy;
-        disposables.push(retryPolicy.onRetry(({ attempt, delay }) => {
+        disposables.push(policy.onRetry(({ attempt, delay }) => {
             logger.warn(`[${policyName}] Retry attempt`, { attempt, delay });
-        }));
-        disposables.push(retryPolicy.onGiveUp(failureReason => {
-            const errorMsg = 'error' in failureReason
-                ? failureReason.error.message
-                : String(failureReason.value);
+        }), policy.onGiveUp(failureReason => {
             logger.error(`[${policyName}] All retries exhausted`, {
-                error: errorMsg,
+                error: describe(failureReason),
             });
         }));
     }
     // Circuit breaker events
     if (hasCircuitBreakerEvents(policy)) {
-        const breaker = policy;
-        disposables.push(breaker.onBreak(failureReason => {
+        disposables.push(policy.onBreak(failureReason => {
             if ('isolated' in failureReason) {
                 logger.error(`[${policyName}] Circuit breaker opened (isolated)`);
             }
             else {
-                const errorMsg = 'error' in failureReason
-                    ? failureReason.error.message
-                    : String(failureReason.value);
                 logger.error(`[${policyName}] Circuit breaker opened`, {
-                    error: errorMsg,
+                    error: describe(failureReason),
                 });
             }
-        }));
-        disposables.push(breaker.onHalfOpen(() => {
+        }), policy.onHalfOpen(() => {
             logger.info(`[${policyName}] Circuit breaker half-open`);
-        }));
-        disposables.push(breaker.onReset(() => {
+        }), policy.onReset(() => {
             logger.info(`[${policyName}] Circuit breaker closed`);
         }));
     }
     // Timeout events
     if (hasTimeoutEvents(policy)) {
-        const timeoutPolicy = policy;
-        disposables.push(timeoutPolicy.onTimeout(() => {
+        disposables.push(policy.onTimeout(() => {
             logger.warn(`[${policyName}] Operation timed out`);
         }));
     }
-    // Success / failure events (available on all IPolicy)
+    // Success / failure events (available on every policy)
     disposables.push(policy.onSuccess(({ duration }) => {
         logger.info(`[${policyName}] Operation succeeded`, {
             durationMs: duration,
         });
-    }));
-    disposables.push(policy.onFailure(({ reason, duration }) => {
-        const errorMsg = 'error' in reason ? reason.error.message : String(reason.value);
+    }), policy.onFailure(({ reason, duration }) => {
         logger.error(`[${policyName}] Operation failed`, {
-            error: errorMsg,
+            error: describe(reason),
             durationMs: duration,
         });
     }));

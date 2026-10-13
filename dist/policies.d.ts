@@ -1,4 +1,4 @@
-import type { IPolicy } from 'cockatiel';
+import type { BulkheadPolicy, CircuitBreakerPolicy, Policy, RetryPolicy, TimeoutPolicy } from './policy.js';
 export type RetryPolicyOptions = {
     /** Maximum number of retry attempts (default: 3) */
     maxAttempts?: number;
@@ -35,26 +35,34 @@ export type ResiliencePolicyOptions = {
  *
  * Defaults: 3 attempts, 100 ms initial delay, 10 s max delay, exponent 2.
  */
-export declare function createRetryPolicy(options?: RetryPolicyOptions): import("cockatiel").RetryPolicy;
+export declare function createRetryPolicy(options?: RetryPolicyOptions): RetryPolicy;
 /**
  * Create a circuit breaker policy using consecutive-failure detection.
  *
  * Defaults: 5 consecutive failures, 30 s half-open window.
  */
-export declare function createCircuitBreakerPolicy(options?: CircuitBreakerPolicyOptions): import("cockatiel").CircuitBreakerPolicy;
+export declare function createCircuitBreakerPolicy(options?: CircuitBreakerPolicyOptions): CircuitBreakerPolicy;
 /**
  * Create a timeout policy that aggressively cancels the operation when the
  * deadline is exceeded.
  *
  * Default: 30 s.
  */
-export declare function createTimeoutPolicy(options?: TimeoutPolicyOptions): import("cockatiel").TimeoutPolicy;
+export declare function createTimeoutPolicy(options?: TimeoutPolicyOptions): TimeoutPolicy;
 /**
  * Create a bulkhead (concurrency-limiter) policy.
  *
  * Defaults: 10 concurrent, 100 queued.
  */
-export declare function createBulkheadPolicy(options?: BulkheadPolicyOptions): import("cockatiel").BulkheadPolicy;
+export declare function createBulkheadPolicy(options?: BulkheadPolicyOptions): BulkheadPolicy;
+/**
+ * Compose policies from the outside in: `wrap(retry, breaker, timeout)` retries a call whose
+ * every attempt goes through the breaker and then the timeout. Events on the result are
+ * those of the outermost policy.
+ */
+export declare function wrap(first: Policy, ...rest: Policy[]): Policy;
+/** A policy that only runs the function. Useful as a default or in tests. */
+export declare const noop: Policy;
 /**
  * Create a composed resilience policy: retry -> circuit breaker -> timeout.
  *
@@ -62,5 +70,5 @@ export declare function createBulkheadPolicy(options?: BulkheadPolicyOptions): i
  * timeout, so a single logical call may be retried while individual attempts
  * are protected by the breaker and the timeout.
  */
-export declare function createResiliencePolicy(options?: ResiliencePolicyOptions): IPolicy;
+export declare function createResiliencePolicy(options?: ResiliencePolicyOptions): Policy;
 //# sourceMappingURL=policies.d.ts.map

@@ -1,4 +1,4 @@
-import type { IPolicy } from 'cockatiel';
+import type { Policy } from './policy.js';
 export type PolicyLogger = {
     info(message: string, context?: Record<string, unknown>): void;
     warn(message: string, context?: Record<string, unknown>): void;
@@ -10,5 +10,5 @@ export type PolicyLogger = {
  *
  * Returns a cleanup function that disposes all subscriptions.
  */
-export declare function attachPolicyLogger(policy: IPolicy, logger: PolicyLogger, policyName?: string): () => void;
+export declare function attachPolicyLogger(policy: Policy, logger: PolicyLogger, policyName?: string): () => void;
 //# sourceMappingURL=events.d.ts.map

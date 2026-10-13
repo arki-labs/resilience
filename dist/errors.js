@@ -1,38 +1,61 @@
-import { TaskCancelledError, isBrokenCircuitError, isBulkheadRejectedError, } from 'cockatiel';
-/**
- * Thrown when a circuit breaker is in the open state and rejects execution.
- * Re-exported from cockatiel for semantic clarity.
- */
-/**
- * Thrown when an operation exceeds its configured timeout duration.
- * Re-exported from cockatiel.
- */
+/** Base class of every error the policies raise themselves. Errors thrown by your function pass through untouched. */
+export class ResilienceError extends Error {
+    constructor(message, options) {
+        super(message, options);
+        this.name = 'ResilienceError';
+    }
+}
+/** The circuit breaker is open: the call was rejected without running the function. */
+export class CircuitOpenError extends ResilienceError {
+    constructor(message = 'Circuit breaker is open', options) {
+        super(message, options);
+        this.name = 'CircuitOpenError';
+    }
+}
+/** A timeout policy reached its deadline before the function returned. */
+export class TimeoutError extends ResilienceError {
+    constructor(message = 'Operation timed out', options) {
+        super(message, options);
+        this.name = 'TimeoutError';
+    }
+}
+/** The caller's own signal aborted while the call was in flight. `cause` is the signal's reason. */
+export class CancelledError extends ResilienceError {
+    constructor(message = 'Operation cancelled', options) {
+        super(message, options);
+        this.name = 'CancelledError';
+    }
+}
+/** A bulkhead turned the call away: every execution slot and queue slot was taken. */
+export class BulkheadRejectedError extends ResilienceError {
+    constructor(message = 'Bulkhead capacity exceeded', options) {
+        super(message, options);
+        this.name = 'BulkheadRejectedError';
+    }
+}
 /**
  * Thrown when all retry attempts have been exhausted without a successful result.
  */
-export class RetriesExhaustedError extends Error {
+export class RetriesExhaustedError extends ResilienceError {
     attempts;
     lastError;
     constructor(attempts, lastError) {
-        super(`All ${attempts} retry attempts exhausted${lastError ? `: ${lastError.message}` : ''}`);
+        super(`All ${attempts} retry attempts exhausted${lastError ? `: ${lastError.message}` : ''}`, {
+            cause: lastError,
+        });
         this.name = 'RetriesExhaustedError';
         this.attempts = attempts;
         this.lastError = lastError;
     }
 }
-/**
- * Type guard that checks whether a given error originates from the resilience layer.
- */
+/** True for every error raised by the resilience layer itself. */
 export function isResilienceError(error) {
-    if (error instanceof RetriesExhaustedError)
-        return true;
-    if (isBrokenCircuitError(error))
-        return true;
-    if (isBulkheadRejectedError(error))
-        return true;
-    if (error instanceof TaskCancelledError)
-        return true;
-    return false;
+    return error instanceof ResilienceError;
 }
-export { BrokenCircuitError as CircuitOpenError, TaskCancelledError as TimeoutError, isBrokenCircuitError, isBulkheadRejectedError } from 'cockatiel';
+export function isBrokenCircuitError(error) {
+    return error instanceof CircuitOpenError;
+}
+export function isBulkheadRejectedError(error) {
+    return error instanceof BulkheadRejectedError;
+}
 //# sourceMappingURL=errors.js.map

@@ -1,5 +1,4 @@
-import { wrap } from 'cockatiel';
-import { createResiliencePolicy, createRetryPolicy, createTimeoutPolicy } from './policies.js';
+import { createResiliencePolicy, createRetryPolicy, createTimeoutPolicy, wrap } from './policies.js';
 /**
  * Resilience policy tuned for external API calls (geocoding, AI providers, etc.).
  *
