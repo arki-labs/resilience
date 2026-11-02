@@ -1,16 +1,12 @@
-import { createCircuitBreakerPolicy, createRetryPolicy, createTimeoutPolicy } from './policies.js';
-/**
- * Return the policy's own promise instead of awaiting it inside an `async` function, which would
- * wrap it in a second promise and add microtask hops to every call. A policy that throws instead of
- * rejecting still yields a rejected promise, as an `async` function would.
- */
+import { UnexpectedDefect } from '@arki/failure';
+import { createRetryPolicy, createTimeoutPolicy } from './policies.js';
+/** Own synchronous and asynchronous defects from foreign execution-only policies too. */
 function run(policy, fn) {
     try {
-        return policy.execute(fn);
+        return policy.execute(fn).catch(error => UnexpectedDefect({ cause: error }));
     }
     catch (error) {
-        // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- passes the thrown value through unchanged, as an `async` function would
-        return Promise.reject(error);
+        return Promise.resolve(UnexpectedDefect({ cause: error }));
     }
 }
 /**
@@ -41,13 +37,5 @@ export function withRetry(fn, options) {
  */
 export function withTimeout(fn, options) {
     return run(createTimeoutPolicy(options), fn);
-}
-/**
- * @deprecated Builds a new circuit breaker on every call, so it never
- * remembers a failure and never opens. Build one policy with
- * `createCircuitBreakerPolicy()` and pass it to `withResilience()` on each call.
- */
-export function withCircuitBreaker(fn, options) {
-    return run(createCircuitBreakerPolicy(options), fn);
 }
 //# sourceMappingURL=execute.js.map

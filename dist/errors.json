@@ -1,0 +1,56 @@
+[
+  {
+    "code": "ARKI_RESILIENCE_E006",
+    "package": "@arki/resilience",
+    "kind": "thrown",
+    "what": "A `backoff` builder got an option or an attempt number it cannot use.",
+    "fix": "Pass finite, non-negative numbers: `jitter` from 0 to 1, a whole number to `upTo`, attempts from 1.",
+    "verify": "cd packages/resilience && bun run test",
+    "source": "src/errors.ts:12"
+  },
+  {
+    "code": "ARKI_RESILIENCE_PLUGIN_E001",
+    "package": "@arki/resilience",
+    "kind": "thrown",
+    "what": "`for` or `run` got a name that is not in the presets (only reachable from untyped JS).",
+    "fix": "Use a name you passed to `definePresets(...)`. Types catch this in TypeScript.",
+    "verify": "cd packages/resilience && bun run test",
+    "source": "src/dot.ts:48"
+  },
+  {
+    "code": "resilience.bulkhead_rejected",
+    "package": "@arki/resilience",
+    "kind": "failure",
+    "what": "No execution or queue slot was available; no callback ran.",
+    "fix": "Shed load or explicitly retry after capacity becomes available.",
+    "verify": "bun run test",
+    "source": "src/errors.ts:80"
+  },
+  {
+    "code": "resilience.cancelled",
+    "package": "@arki/resilience",
+    "kind": "failure",
+    "what": "Execution was cancelled before work could continue.",
+    "fix": "Stop retrying; begin new work only under a new owning signal.",
+    "verify": "bun run test",
+    "source": "src/errors.ts:47"
+  },
+  {
+    "code": "resilience.circuit_open",
+    "package": "@arki/resilience",
+    "kind": "failure",
+    "what": "The circuit is open; no callback ran.",
+    "fix": "Wait for a half-open attempt or explicitly handle the refusal.",
+    "verify": "bun run test",
+    "source": "src/errors.ts:62"
+  },
+  {
+    "code": "resilience.timeout",
+    "package": "@arki/resilience",
+    "kind": "failure",
+    "what": "The owned deadline expired; the callback may still need to finish cancellation.",
+    "fix": "Pass the attempt signal to work and reconcile effects before retrying.",
+    "verify": "bun run test",
+    "source": "src/errors.ts:71"
+  }
+]

@@ -1,18 +1,16 @@
-import type { CircuitBreakerPolicyOptions, RetryPolicyOptions, TimeoutPolicyOptions } from './policies.js';
-import type { Policy, PolicyCallback } from './policy.js';
-import { createCircuitBreakerPolicy, createRetryPolicy, createTimeoutPolicy } from './policies.js';
+import type { RetryFailure, ExecutionFailure } from './errors.js';
 
-/**
- * Return the policy's own promise instead of awaiting it inside an `async` function, which would
- * wrap it in a second promise and add microtask hops to every call. A policy that throws instead of
- * rejecting still yields a rejected promise, as an `async` function would.
- */
-function run<T>(policy: Policy, fn: PolicyCallback<T>): Promise<T> {
+import type { RetryPolicyOptions, TimeoutPolicyOptions } from './policies.js';
+import type { Policy, PolicyCallback } from './policy.js';
+import { UnexpectedDefect } from '@arki/failure';
+import { createRetryPolicy, createTimeoutPolicy } from './policies.js';
+
+/** Own synchronous and asynchronous defects from foreign execution-only policies too. */
+function run<T, F, E>(policy: Policy<F, E>, fn: PolicyCallback<T>): Promise<T | F | E | ExecutionFailure> {
   try {
-    return policy.execute(fn);
+    return policy.execute(fn).catch(error => UnexpectedDefect({ cause: error }));
   } catch (error) {
-    // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- passes the thrown value through unchanged, as an `async` function would
-    return Promise.reject(error);
+    return Promise.resolve(UnexpectedDefect({ cause: error }));
   }
 }
 
@@ -27,7 +25,7 @@ function run<T>(policy: Policy, fn: PolicyCallback<T>): Promise<T> {
  * );
  * ```
  */
-export function withResilience<T>(fn: PolicyCallback<T>, policy: Policy): Promise<T> {
+export function withResilience<T, F = never, E = never>(fn: PolicyCallback<T>, policy: Policy<F, E>): Promise<T | F | E | ExecutionFailure> {
   return run(policy, fn);
 }
 
@@ -37,22 +35,16 @@ export function withResilience<T>(fn: PolicyCallback<T>, policy: Policy): Promis
  * Convenience wrapper that creates an ephemeral retry policy from the provided
  * options and executes immediately.
  */
-export function withRetry<T>(fn: PolicyCallback<T>, options?: RetryPolicyOptions): Promise<T> {
+export function withRetry<T, Mapped = never>(
+  fn: PolicyCallback<T>,
+  options?: RetryPolicyOptions<Mapped>,
+): Promise<T | Mapped | RetryFailure> {
   return run(createRetryPolicy(options), fn);
 }
 
 /**
  * Execute a function with a timeout policy.
  */
-export function withTimeout<T>(fn: PolicyCallback<T>, options?: TimeoutPolicyOptions): Promise<T> {
+export function withTimeout<T>(fn: PolicyCallback<T>, options?: TimeoutPolicyOptions) {
   return run(createTimeoutPolicy(options), fn);
-}
-
-/**
- * @deprecated Builds a new circuit breaker on every call, so it never
- * remembers a failure and never opens. Build one policy with
- * `createCircuitBreakerPolicy()` and pass it to `withResilience()` on each call.
- */
-export function withCircuitBreaker<T>(fn: PolicyCallback<T>, options?: CircuitBreakerPolicyOptions): Promise<T> {
-  return run(createCircuitBreakerPolicy(options), fn);
 }

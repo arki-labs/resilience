@@ -1,17 +1,14 @@
+import { backoff } from './backoff.js';
 import { createResiliencePolicy, createRetryPolicy, createTimeoutPolicy, wrap } from './policies.js';
 /**
  * Resilience policy tuned for external API calls (geocoding, AI providers, etc.).
  *
- * - Retry: 3 attempts, 200 ms initial, 5 s max
+ * - Retry: 3 retries, 200 ms doubling to at most 5 s, 25% jitter
  * - Circuit breaker: 5 consecutive failures, 30 s half-open
  * - Timeout: 10 s per attempt
  */
 export const externalApiPolicy = createResiliencePolicy({
-    retry: {
-        maxAttempts: 3,
-        initialDelay: 200,
-        maxDelay: 5000,
-    },
+    retry: backoff.exponential({ base: 200, max: 5000, jitter: 0.25 }).upTo(3),
     circuitBreaker: {
         consecutiveFailures: 5,
         halfOpenAfter: 30_000,
@@ -26,30 +23,22 @@ export const externalApiPolicy = createResiliencePolicy({
  * Skips the circuit breaker because database connection pools already handle
  * connection-level health checks.
  *
- * - Retry: 2 attempts, 50 ms initial, 1 s max
+ * - Retry: 2 retries, 50 ms doubling to at most 1 s, 25% jitter
  * - Timeout: 5 s per attempt
  */
-export const databasePolicy = wrap(createRetryPolicy({
-    maxAttempts: 2,
-    initialDelay: 50,
-    maxDelay: 1000,
-}), createTimeoutPolicy({
+export const databasePolicy = wrap(createRetryPolicy({ backoff: backoff.exponential({ base: 50, max: 1000, jitter: 0.25 }).upTo(2) }), createTimeoutPolicy({
     timeoutMs: 5000,
 }));
 /**
  * Resilience policy tuned for background job processing where higher latency
  * and more retries are acceptable.
  *
- * - Retry: 5 attempts, 500 ms initial, 30 s max
+ * - Retry: 5 retries, 500 ms doubling to at most 30 s, 25% jitter
  * - Circuit breaker: 10 consecutive failures, 60 s half-open
  * - Timeout: 60 s per attempt
  */
 export const backgroundJobPolicy = createResiliencePolicy({
-    retry: {
-        maxAttempts: 5,
-        initialDelay: 500,
-        maxDelay: 30_000,
-    },
+    retry: backoff.exponential({ base: 500, max: 30_000, jitter: 0.25 }).upTo(5),
     circuitBreaker: {
         consecutiveFailures: 10,
         halfOpenAfter: 60_000,
@@ -58,4 +47,22 @@ export const backgroundJobPolicy = createResiliencePolicy({
         timeoutMs: 60_000,
     },
 });
+/**
+ * Build one composed policy per name. Each name has its own breaker, so one failing downstream
+ * does not open the circuit of another. A `Presets` object shared by two apps shares its
+ * breakers too: same downstream, same health.
+ *
+ * @example
+ * ```ts
+ * const presets = definePresets({
+ *   carrier: { retry: backoff.exponential({ base: 200, max: 5000 }).upTo(3), timeout: { timeoutMs: 10_000 } },
+ *   search: { bulkhead: { maxConcurrent: 20 } },
+ * });
+ * await presets.carrier.execute(() => callCarrier());
+ * ```
+ */
+export function definePresets(options) {
+    // `Object.fromEntries` widens the keys to string; every key here came from `options`, so the cast only restores them.
+    return Object.fromEntries(Object.entries(options).map(([name, preset]) => [name, createResiliencePolicy(preset)]));
+}
 //# sourceMappingURL=presets.js.map

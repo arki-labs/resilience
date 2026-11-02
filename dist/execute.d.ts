@@ -1,4 +1,5 @@
-import type { CircuitBreakerPolicyOptions, RetryPolicyOptions, TimeoutPolicyOptions } from './policies.js';
+import type { RetryFailure, ExecutionFailure } from './errors.js';
+import type { RetryPolicyOptions, TimeoutPolicyOptions } from './policies.js';
 import type { Policy, PolicyCallback } from './policy.js';
 /**
  * Execute a function with an already-constructed resilience policy.
@@ -11,22 +12,16 @@ import type { Policy, PolicyCallback } from './policy.js';
  * );
  * ```
  */
-export declare function withResilience<T>(fn: PolicyCallback<T>, policy: Policy): Promise<T>;
+export declare function withResilience<T, F = never, E = never>(fn: PolicyCallback<T>, policy: Policy<F, E>): Promise<T | F | E | ExecutionFailure>;
 /**
  * Execute a function with a retry policy (no circuit breaker or timeout).
  *
  * Convenience wrapper that creates an ephemeral retry policy from the provided
  * options and executes immediately.
  */
-export declare function withRetry<T>(fn: PolicyCallback<T>, options?: RetryPolicyOptions): Promise<T>;
+export declare function withRetry<T, Mapped = never>(fn: PolicyCallback<T>, options?: RetryPolicyOptions<Mapped>): Promise<T | Mapped | RetryFailure>;
 /**
  * Execute a function with a timeout policy.
  */
-export declare function withTimeout<T>(fn: PolicyCallback<T>, options?: TimeoutPolicyOptions): Promise<T>;
-/**
- * @deprecated Builds a new circuit breaker on every call, so it never
- * remembers a failure and never opens. Build one policy with
- * `createCircuitBreakerPolicy()` and pass it to `withResilience()` on each call.
- */
-export declare function withCircuitBreaker<T>(fn: PolicyCallback<T>, options?: CircuitBreakerPolicyOptions): Promise<T>;
+export declare function withTimeout<T>(fn: PolicyCallback<T>, options?: TimeoutPolicyOptions): Promise<T | import("@arki/failure").Failure<"failure.unexpected_defect", undefined> | import("@arki/failure").Failure<"resilience.cancelled", undefined> | import("@arki/failure").Failure<"resilience.timeout", undefined>>;
 //# sourceMappingURL=execute.d.ts.map

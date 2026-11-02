@@ -1,6 +1,6 @@
 {
   "name": "@arki/resilience",
-  "version": "0.1.0",
+  "version": "0.3.2",
   "description": "Resilience primitives for ARKI — retry, circuit breaker, timeout, bulkhead, and curated presets, built on cockatiel.",
   "license": "MIT",
   "repository": {
@@ -29,6 +29,11 @@
       "import": "./dist/index.js",
       "default": "./dist/index.js"
     },
+    "./dot": {
+      "types": "./dist/dot.d.ts",
+      "import": "./dist/dot.js",
+      "default": "./dist/dot.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [
@@ -40,11 +45,27 @@
     "!src/**/test/**",
     "!src/**/__tests__/**",
     "README.md",
+    "docs/**",
+    "llms.txt",
     "LICENSE",
     "package.json"
   ],
   "dependencies": {
-    "cockatiel": "^4.0.0"
+    "@arki/clock": "0.2.0",
+    "@arki/failure": "0.3.0",
+    "@arki/log": "0.4.0",
+    "@arki/schema": "0.3.0",
+    "@opentelemetry/api": "^1.9.1",
+    "cockatiel": "^4.0.0",
+    "zod": "4.6.5"
+  },
+  "peerDependencies": {
+    "@arki/dot": "^0.10.0"
+  },
+  "peerDependenciesMeta": {
+    "@arki/dot": {
+      "optional": true
+    }
   },
   "publishConfig": {
     "access": "public"

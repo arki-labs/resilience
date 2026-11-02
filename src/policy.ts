@@ -1,3 +1,5 @@
+import type { RetryFailure, ExecutionFailure, CircuitFailure, TimeoutFailure, BulkheadFailure } from './errors.js';
+
 // The public shape of a policy. Nothing here names the underlying engine, so the
 // engine can change without changing this file or anything built on it.
 
@@ -18,10 +20,13 @@ export type PolicyCallback<T> = (context: PolicyContext) => PromiseLike<T> | T;
 /** Returned by every event method. Call `dispose()` to stop listening. */
 export type Subscription = { dispose(): void };
 
-/** An event method: pass a listener, get a subscription back. */
+/**
+ * Subscribe to observation. Listeners run synchronously; rejected promises are observed but never awaited.
+ * Listener defects cannot replace outcomes or trigger retries. Use the operation for authoritative work.
+ */
 export type PolicyEvent<E> = (listener: (event: E) => void) => Subscription;
 
-/** Why a call counted as a failure: the error it threw, or the value the policy rejected. */
+/** Why a call counted as a failure: the error it threw, or the value it returned (a failure from `@arki/failure`). */
 export type FailureReason = { error: unknown } | { value: unknown };
 
 export type SuccessEvent = {
@@ -48,22 +53,41 @@ export type RetryEvent = FailureReason & {
 /** Fired when a circuit breaker opens. `isolated` means it was opened by hand. */
 export type BreakEvent = FailureReason | { isolated: true };
 
-/** Any policy: runs a function and reports how each call ended. */
-export type Policy = {
-  execute<T>(fn: PolicyCallback<T>, signal?: AbortSignal): Promise<T>;
+/** Type-only brand. Never set at runtime. Not `@internal`: the published `.d.ts` needs it. */
+declare const fallbackType: unique symbol;
+/** Type-only witness preserves owned outcomes through higher-rank execute callbacks. */
+declare const outcomeType: unique symbol;
+
+/**
+ * Any policy: runs a function and reports how each call ended. `F` is what a fallback may
+ * resolve instead of the function's own `T`; it is `never` for a plain policy.
+ */
+export type PolicyExecution<F = never, E = never> = {
+  /** Phantom: makes a policy with a fallback unassignable to a plain `Policy`, so `wrap` rejects it. */
+  readonly [fallbackType]?: () => F;
+  readonly [outcomeType]?: () => E;
+  execute<T>(this: void, fn: PolicyCallback<T>, signal?: AbortSignal): Promise<T | F | E | ExecutionFailure>;
+};
+
+/** Execution plus observable policy events. */
+export type Policy<F = never, E = never> = PolicyExecution<F, E> & {
   /** Fires once per call that ends well, even when that took retries. */
   readonly onSuccess: PolicyEvent<SuccessEvent>;
   /** Fires on every failed attempt the policy sees. */
   readonly onFailure: PolicyEvent<FailureEvent>;
 };
 
-export type RetryPolicy = Policy & {
+/** A retry policy. `F` is what its `onThrow` may answer instead of the function's own `T`; `never` without one. */
+export type RetryPolicy<F = never> = Policy<F, RetryFailure> & {
   readonly onRetry: PolicyEvent<RetryEvent>;
-  /** Fires when the last attempt has failed and the error is about to reach the caller. */
+  /**
+   * Fires when the last attempt has failed and its error, or its failure after at least one
+   * retry, is about to reach the caller. A returned failure that was never retried does not fire it.
+   */
   readonly onGiveUp: PolicyEvent<FailureReason>;
 };
 
-export type CircuitBreakerPolicy = Policy & {
+export type CircuitBreakerPolicy = Policy<never, CircuitFailure> & {
   readonly onBreak: PolicyEvent<BreakEvent>;
   /** Fires when the breaker lets a trial call through after `halfOpenAfter`. */
   readonly onHalfOpen: PolicyEvent<void>;
@@ -71,11 +95,11 @@ export type CircuitBreakerPolicy = Policy & {
   readonly onReset: PolicyEvent<void>;
 };
 
-export type TimeoutPolicy = Policy & {
+export type TimeoutPolicy = Policy<never, TimeoutFailure> & {
   readonly onTimeout: PolicyEvent<void>;
 };
 
-export type BulkheadPolicy = Policy & {
+export type BulkheadPolicy = Policy<never, BulkheadFailure> & {
   /** Fires when a call is turned away because both the slots and the queue are full. */
   readonly onReject: PolicyEvent<void>;
 };
