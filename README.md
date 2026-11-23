@@ -1,4 +1,4 @@
-Read-only mirror of `@arki/resilience` v0.3.2. Source and issues: arki-labs/arki. Docs: https://arki.dev/packages/resilience. Published 2026-11-02 with provenance https://www.npmjs.com/package/@arki/resilience/v/0.3.2#provenance.
+Read-only mirror of `@arki/resilience` v0.3.3. Source and issues: arki-labs/arki. Docs: https://arki.dev/packages/resilience. Published 2026-11-23 with provenance https://www.npmjs.com/package/@arki/resilience/v/0.3.3#provenance.
 
 # @arki/resilience
 
@@ -39,6 +39,16 @@ A thrown error is retried by the schedule and then thrown again unchanged. A ret
 
 Node, Bun, Deno, modern browsers and React Native (Hermes). Pure ESM. The package uses only `setTimeout`, `AbortSignal` and `Promise` at call time, with no `node:*` imports and no `process` or `Buffer`. `bun run test:runtimes` runs a smoke test of the built package on every runtime; the Hermes leg needs a `hermes` binary (`HERMES_BIN`) and prints `INCOMPLETE` when it is missing.
 
+<!-- runtimes:start -->
+| Runtime | Result | Version tested | Date (UTC) |
+| --- | --- | --- | --- |
+| node | pass | v22.13.1 | 2026-11-05 |
+| bun | pass | 1.4.2 | 2026-11-05 |
+| deno | pass | 2.9.8 | 2026-11-05 |
+| browser | pass | Chromium 156.0.8078.4 | 2026-11-05 |
+| hermes | pass | V1 250829098.0.17 | 2026-11-05 |
+<!-- runtimes:end -->
+
 ## Public imports
 
 | Import                 | What it gives you                                                                                        |
@@ -59,6 +69,25 @@ A call resolves to the callback's value, its returned canonical failure, or an e
 - Every owned execution can return `Cancelled` or `UnexpectedDefect`. `RETRY_FAILURES`, `CIRCUIT_FAILURES`, `TIMEOUT_FAILURES` and `BULKHEAD_FAILURES` contain the original definitions for each policy. `RESILIENCE_FAILURES` admits composed policies and presets; `wrap` infers the exact union of its inputs.
 - `Cancelled` means the owning signal stopped execution. A real retry wait preserves its original `SleepCancelled` or `UnexpectedDefect`.
 - Static backoff misuse still throws `InvalidBackoffError` (`ARKI_RESILIENCE_E006`) where the builder is called.
+
+## Observability
+
+Spans (OpenTelemetry API only, tracer `@arki/resilience`; nothing is exported until the app configures an SDK):
+
+| Span | When | Attributes |
+| --- | --- | --- |
+| `resilience.execute` | each public owned policy call, including fallback and pre-aborted refusal | `failure.code` on failure |
+| `resilience.attempt` | each retry attempt, including its inner policies | `resilience.attempt` (zero-based), `failure.code` on failure |
+| `resilience.wait` | each selected retry delay | `resilience.attempt`, `resilience.delay_ms`, `failure.code` on failure |
+| `resilience.circuit_breaker` | each breaker admission and execution | `failure.code` on failure; event `resilience.circuit.state_changed` (`resilience.circuit.state`) on a transition |
+| `resilience.timeout` | each deadline, until the policy settles | `failure.code` on failure |
+| `resilience.bulkhead` | each capacity admission, queue wait and execution | `failure.code` on failure |
+
+A returned failure sets `failure.code`; only a fault (5xx) or a throw (`failure.unexpected_defect`) sets error status. Spans start under the active context: in a Dot app, a preset run by a usecase is a child of the `feature.<feature>.<usecase>` span.
+
+Metrics: `resilience.operations` (counter; `resilience.boundary`, `resilience.outcome`), `resilience.duration` (histogram, seconds; same dimensions), `resilience.circuit.transitions` (counter; `resilience.circuit.state`).
+
+Not instrumented: `noop`, static builders and backoff calculations — pure computation with nothing to wait on. Foreign policies passed to `withResilience` keep their own instrumentation. Details: [Default telemetry](#default-telemetry).
 
 ## Limits
 
